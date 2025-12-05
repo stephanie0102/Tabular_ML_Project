@@ -35,6 +35,7 @@ from models_tabular import (
     EnsembleModel,
     HAS_LIGHTGBM,
     HAS_XGBOOST,
+    HAS_TABPFN,
 )
 
 # Directory configuration
@@ -324,7 +325,7 @@ def main():
         "--model",
         type=str,
         default="lgbm",
-        choices=["rf", "lgbm", "xgb", "lr", "mlp", "ensemble"],
+        choices=["rf", "lgbm", "xgb", "lr", "mlp", "ensemble", "baseline"],
         help="Model type",
     )
     parser.add_argument(
@@ -369,6 +370,9 @@ def main():
     elif args.model == "xgb" and not HAS_XGBOOST:
         print("XGBoost not available. Using RandomForest instead.")
         args.model = "rf"
+    elif args.model == "baseline" and not HAS_TABPFN:
+        print("TabPFN baseline requires tabpfn/torch. Install with: pip install tabpfn torch")
+        sys.exit(1)
 
     verbose = not args.quiet
 

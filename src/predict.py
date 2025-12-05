@@ -46,6 +46,7 @@ def predict_single_dataset(
     dataset_name,
     model_type="lgbm",
     save_submission=True,
+    submission_prefix="",
     verbose=True,
 ):
     """
@@ -59,6 +60,8 @@ def predict_single_dataset(
         Model type (e.g. 'lgbm', 'rf', 'xgb', ...).
     save_submission : bool
         Whether to save the submission CSV file.
+    submission_prefix : str
+        Optional prefix for the saved submission filename (e.g. 'baseline_').
     verbose : bool
         Whether to print detailed logs.
 
@@ -122,9 +125,8 @@ def predict_single_dataset(
 
     # Save submission file
     if save_submission:
-        submission_path = os.path.join(
-            SUBMISSION_DIR, f"{dataset_name}_test_submission.csv"
-        )
+        submission_filename = f"{submission_prefix}{dataset_name}_test_submission.csv"
+        submission_path = os.path.join(SUBMISSION_DIR, submission_filename)
         submission.to_csv(submission_path, index=False)
         if verbose:
             print(f"Submission saved to: {submission_path}")
@@ -135,6 +137,10 @@ def predict_single_dataset(
 def predict_all_datasets(
     model_type="lgbm",
     save_submissions=True,
+    save_individual=True,
+    save_combined=True,
+    combined_filename="combined_submission.csv",
+    submission_prefix=None,
     verbose=True,
 ):
     """
@@ -145,22 +151,70 @@ def predict_all_datasets(
     all_submissions : dict
         Mapping from dataset name to its submission DataFrame.
     """
+    if submission_prefix is None:
+        submission_prefix = "baseline_" if model_type == "baseline" else ""
+
     all_submissions = {}
 
     for dataset_name in ["covtype", "heloc", "higgs"]:
         try:
-            submission = predict_single_dataset(
-                dataset_name=dataset_name,
-                model_type=model_type,
-                save_submission=save_submissions,
-                verbose=verbose,
-            )
+            if save_submissions and save_individual:
+                submission = predict_single_dataset(
+                    dataset_name=dataset_name,
+                    model_type=model_type,
+                    save_submission=True,
+                    submission_prefix=submission_prefix,
+                    verbose=verbose,
+                )
+            else:
+                # Still run inference to include in combined file
+                submission = predict_single_dataset(
+                    dataset_name=dataset_name,
+                    model_type=model_type,
+                    save_submission=False,
+                    submission_prefix=submission_prefix,
+                    verbose=verbose,
+                )
             all_submissions[dataset_name] = submission
         except FileNotFoundError as e:
             print(f"Warning: {e}")
             continue
 
+    if save_combined and all_submissions:
+        combined_path = combine_submissions(
+            all_submissions,
+            filename=combined_filename,
+            verbose=verbose,
+        )
+        if verbose:
+            print(f"Combined submission saved to: {combined_path}")
+
     return all_submissions
+
+
+def combine_submissions(submissions_dict, filename="combined_submission.csv", verbose=True):
+    """
+    Combine per-dataset submissions into a single file (ID, Prediction).
+
+    Rows are concatenated then sorted by ID to keep deterministic ordering.
+    """
+    frames = []
+    for name, df in submissions_dict.items():
+        if not {"ID", "Prediction"}.issubset(df.columns):
+            if verbose:
+                print(f"Skipping {name}: missing required columns")
+            continue
+        frames.append(df[["ID", "Prediction"]])
+
+    if not frames:
+        raise ValueError("No valid submissions to combine")
+
+    combined = pd.concat(frames, axis=0)
+    combined = combined.sort_values("ID")
+
+    output_path = os.path.join(SUBMISSION_DIR, filename)
+    combined.to_csv(output_path, index=False)
+    return output_path
 
 
 def main():
@@ -178,13 +232,35 @@ def main():
         "--model",
         type=str,
         default="lgbm",
-        choices=["rf", "lgbm", "xgb", "lr", "mlp", "ensemble"],
+        choices=["rf", "lgbm", "xgb", "lr", "mlp", "ensemble", "baseline"],
         help="Model type",
     )
     parser.add_argument(
         "--no-save",
         action="store_true",
-        help="Do not save individual submission files",
+        help="Do not save individual submission files (combined can still be saved)",
+    )
+    parser.add_argument(
+        "--no-combined",
+        action="store_true",
+        help="Do not save the combined submission file",
+    )
+    parser.add_argument(
+        "--combined-only",
+        action="store_true",
+        help="Only save the combined submission (skip per-dataset files)",
+    )
+    parser.add_argument(
+        "--combined-filename",
+        type=str,
+        default="combined_submission.csv",
+        help="Filename for the combined submission (relative to submissions/)",
+    )
+    parser.add_argument(
+        "--submission-prefix",
+        type=str,
+        default=None,
+        help="Prefix for saved submission files (defaults to 'baseline_' when model=baseline)",
     )
     parser.add_argument(
         "--quiet",
@@ -194,19 +270,26 @@ def main():
 
     args = parser.parse_args()
     verbose = not args.quiet
+    save_individual = (not args.no_save) and (not args.combined_only)
+    save_combined = (not args.no_combined) or args.combined_only
 
     # Predict for one or all datasets
     if args.dataset == "all":
         predict_all_datasets(
             model_type=args.model,
-            save_submissions=not args.no_save,
+            save_submissions=save_individual,
+            save_individual=save_individual,
+            save_combined=save_combined,
+            combined_filename=args.combined_filename,
+            submission_prefix=args.submission_prefix,
             verbose=verbose,
         )
     else:
         predict_single_dataset(
             dataset_name=args.dataset,
             model_type=args.model,
-            save_submission=not args.no_save,
+            save_submission=save_individual,
+            submission_prefix=args.submission_prefix or ("baseline_" if args.model == "baseline" else ""),
             verbose=verbose,
         )
 

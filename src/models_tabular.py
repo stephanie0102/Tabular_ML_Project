@@ -35,6 +35,15 @@ try:
 except ImportError:
     HAS_CATBOOST = False
 
+# TabPFN (pretrained HuggingFace weights for tabular data)
+try:
+    from tabpfn import TabPFNClassifier
+
+    HAS_TABPFN = True
+except ImportError:
+    HAS_TABPFN = False
+    print("Warning: TabPFN not installed. Run: pip install tabpfn torch")
+
 
 class BaseModel:
     """Base wrapper class for models."""
@@ -226,6 +235,26 @@ class MLPModel(BaseModel):
         super().__init__("MLP", model)
 
 
+class TabPFNModel(BaseModel):
+    """
+    Pretrained TabPFN classifier (HuggingFace-hosted weights).
+
+    Serves as the required baseline model.
+    """
+
+    def __init__(self, device="cpu", n_configurations=32):
+        if not HAS_TABPFN:
+            raise ImportError(
+                "TabPFN not installed. Install with: pip install tabpfn torch"
+            )
+
+        model = TabPFNClassifier(
+            device=device,
+            N_ensemble_configurations=n_configurations,
+        )
+        super().__init__("TabPFN-Baseline", model)
+
+
 class GradientBoostingModel(BaseModel):
     """Gradient Boosting classifier."""
 
@@ -343,6 +372,8 @@ def get_model(model_name, **kwargs):
         "mlp": MLPModel,
         "gb": GradientBoostingModel,
         "gradient_boosting": GradientBoostingModel,
+        "baseline": TabPFNModel,
+        "tabpfn": TabPFNModel,
     }
 
     model_name = model_name.lower()

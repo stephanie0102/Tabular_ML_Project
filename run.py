@@ -1,7 +1,6 @@
 """
 Main entry script
 Run the full training + prediction pipeline with a single command.
-(no combined submission file)
 """
 
 import os
@@ -16,7 +15,15 @@ from predict import predict_all_datasets
 from data_utils import get_data_loader
 
 
-def run_full_pipeline(model_type="lgbm", use_cv=True, verbose=True):
+def run_full_pipeline(
+    model_type="lgbm",
+    use_cv=True,
+    submission_prefix=None,
+    save_individual=True,
+    save_combined=True,
+    combined_filename="combined_submission.csv",
+    verbose=True,
+):
     """
     Run the full training and prediction pipeline.
 
@@ -25,7 +32,7 @@ def run_full_pipeline(model_type="lgbm", use_cv=True, verbose=True):
       2. Train models for all three datasets
       3. Generate test-set predictions (separate CSV per dataset)
     """
-    print("  TABULAR ML BENCHMARK - Full Pipeline")
+    print("  TABULAR ML BENCHMARK")
     print(f"\nModel: {model_type}")
     print(f"Cross-validation: {use_cv}")
 
@@ -56,7 +63,11 @@ def run_full_pipeline(model_type="lgbm", use_cv=True, verbose=True):
 
     predict_all_datasets(
         model_type=model_type,
-        save_submissions=True,
+        save_submissions=save_individual,
+        save_individual=save_individual,
+        submission_prefix=submission_prefix,
+        save_combined=save_combined,
+        combined_filename=combined_filename,
         verbose=verbose,
     )
 
@@ -92,7 +103,7 @@ Examples:
         "--model",
         type=str,
         default="lgbm",
-        choices=["rf", "lgbm", "xgb", "lr", "mlp", "ensemble"],
+        choices=["rf", "lgbm", "xgb", "lr", "mlp", "ensemble", "baseline"],
         help="Model type (default: lgbm)",
     )
     parser.add_argument(
@@ -111,6 +122,33 @@ Examples:
         help="Only generate predictions (requires trained models)",
     )
     parser.add_argument(
+        "--no-save",
+        action="store_true",
+        help="Do not save per-dataset submission files",
+    )
+    parser.add_argument(
+        "--submission-prefix",
+        type=str,
+        default=None,
+        help="Prefix for saved submission files (defaults to 'baseline_' when model=baseline)",
+    )
+    parser.add_argument(
+        "--no-combined",
+        action="store_true",
+        help="Do not save the combined submission file",
+    )
+    parser.add_argument(
+        "--combined-only",
+        action="store_true",
+        help="Only save the combined submission (skip per-dataset files)",
+    )
+    parser.add_argument(
+        "--combined-filename",
+        type=str,
+        default="combined_submission.csv",
+        help="Filename for the combined submission (relative to submissions/)",
+    )
+    parser.add_argument(
         "--quiet",
         action="store_true",
         help="Minimal output",
@@ -118,6 +156,12 @@ Examples:
 
     args = parser.parse_args()
     verbose = not args.quiet
+
+    submission_prefix = args.submission_prefix or (
+        "baseline_" if args.model == "baseline" else ""
+    )
+    save_individual = (not args.no_save) and (not args.combined_only)
+    save_combined = (not args.no_combined) or args.combined_only
 
     if args.train_only:
         # Train only
@@ -131,7 +175,11 @@ Examples:
         # Predict only (assumes models are already trained)
         predict_all_datasets(
             model_type=args.model,
-            save_submissions=True,
+            save_submissions=save_individual,
+            save_individual=save_individual,
+            submission_prefix=submission_prefix,
+            save_combined=save_combined,
+            combined_filename=args.combined_filename,
             verbose=verbose,
         )
     else:
@@ -139,6 +187,10 @@ Examples:
         run_full_pipeline(
             model_type=args.model,
             use_cv=not args.no_cv,
+            submission_prefix=submission_prefix,
+            save_individual=save_individual,
+            save_combined=save_combined,
+            combined_filename=args.combined_filename,
             verbose=verbose,
         )
 

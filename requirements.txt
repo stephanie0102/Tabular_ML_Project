@@ -6,4 +6,5 @@ seaborn
 lightgbm
 tqdm
 xgboost
-lightgbm
+tabpfn
+torch
