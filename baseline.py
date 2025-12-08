@@ -78,7 +78,7 @@ def main():
     # Train only
     if args.train_only:
         train_all_datasets(
-            model_type="baseline",
+            model_type="tabpfn",
             use_cv=not args.no_cv,
             save_models=True,
             verbose=verbose,
@@ -88,7 +88,7 @@ def main():
     # Predict only
     if args.predict_only:
         predict_all_datasets(
-            model_type="baseline",
+            model_type="tabpfn",
             save_submissions=save_individual,
             save_individual=save_individual,
             save_combined=save_combined,
@@ -100,13 +100,13 @@ def main():
 
     # Full pipeline
     train_all_datasets(
-        model_type="baseline",
+        model_type="tabpfn",
         use_cv=not args.no_cv,
         save_models=True,
         verbose=verbose,
     )
     predict_all_datasets(
-        model_type="baseline",
+        model_type="tabpfn",
         save_submissions=save_individual,
         save_individual=save_individual,
         save_combined=save_combined,
