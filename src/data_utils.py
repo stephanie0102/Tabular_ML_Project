@@ -5,8 +5,6 @@ for the three datasets: CoverType, HELOC, and HIGGS.
 
 import pandas as pd
 import numpy as np
-from sklearn.preprocessing import StandardScaler, LabelEncoder
-from sklearn.model_selection import train_test_split
 import os
 
 # Data path configuration
@@ -18,8 +16,6 @@ class DataLoader:
     
     def __init__(self, data_dir=DATA_DIR):
         self.data_dir = data_dir
-        self.scaler = StandardScaler()
-        self.label_encoder = LabelEncoder()
         
     def load_train_data(self):
         """Load training data (to be implemented by subclasses)."""
@@ -28,12 +24,6 @@ class DataLoader:
     def load_test_data(self):
         """Load test data (to be implemented by subclasses)."""
         raise NotImplementedError
-    
-    def preprocess(self, X_train, X_test):
-        """Standardize features using z-score normalization."""
-        X_train_scaled = self.scaler.fit_transform(X_train)
-        X_test_scaled = self.scaler.transform(X_test)
-        return X_train_scaled, X_test_scaled
 
 
 class CovTypeDataLoader(DataLoader):
@@ -69,10 +59,6 @@ class CovTypeDataLoader(DataLoader):
             self.feature_cols = df.columns.tolist()
         
         return X, self.feature_cols
-    
-    def get_sample_submission(self):
-        """Load the sample submission file for CoverType."""
-        return pd.read_csv(os.path.join(self.data_dir, 'covtype_test_submission.csv'))
 
 
 class HELOCDataLoader(DataLoader):
@@ -140,10 +126,6 @@ class HELOCDataLoader(DataLoader):
                     median_val = np.median(valid_values)
                     X[mask, col_idx] = median_val
         return X
-    
-    def get_sample_submission(self):
-        """Load the sample submission file for HELOC."""
-        return pd.read_csv(os.path.join(self.data_dir, 'heloc_test_submission.csv'))
 
 
 class HIGGSDataLoader(DataLoader):
@@ -250,10 +232,6 @@ class HIGGSDataLoader(DataLoader):
                     median_val = np.median(valid_values)
                     X[mask, col_idx] = median_val
         return X
-    
-    def get_sample_submission(self):
-        """Load the sample submission file for HIGGS."""
-        return pd.read_csv(os.path.join(self.data_dir, 'higgs_test_submission.csv'))
 
 
 def get_data_loader(dataset_name):
@@ -267,50 +245,3 @@ def get_data_loader(dataset_name):
         raise ValueError(f"Unknown dataset: {dataset_name}. Choose from {list(loaders.keys())}")
     return loaders[dataset_name]()
 
-
-def load_all_datasets():
-    """
-    Convenience function: load and standardize all three datasets.
-
-    Returns a dict with entries 'covtype', 'heloc', and 'higgs',
-    each containing train/test arrays and metadata.
-    """
-    datasets = {}
-    for name in ['covtype', 'heloc', 'higgs']:
-        loader = get_data_loader(name)
-        X_train, y_train, feature_cols = loader.load_train_data()
-        X_test, _ = loader.load_test_data()
-        
-        # Standardize features
-        X_train_scaled, X_test_scaled = loader.preprocess(X_train, X_test)
-        
-        datasets[name] = {
-            'X_train': X_train,
-            'X_train_scaled': X_train_scaled,
-            'y_train': y_train,
-            'X_test': X_test,
-            'X_test_scaled': X_test_scaled,
-            'feature_cols': feature_cols,
-            'loader': loader
-        }
-    return datasets
-
-
-if __name__ == '__main__':
-    # Quick smoke-test for data loading
-    for name in ['covtype', 'heloc', 'higgs']:
-        print(f"Dataset: {name}")
-        
-        loader = get_data_loader(name)
-        X_train, y_train, feature_cols = loader.load_train_data()
-        X_test, _ = loader.load_test_data()
-        
-        print(f"Train shape: {X_train.shape}")
-        print(f"Test shape: {X_test.shape}")
-        print(f"Unique labels: {np.unique(y_train)}")
-        # For covtype labels start at 1, so subtract 1 for bincount
-        if name != 'covtype':
-            counts = np.bincount(y_train.astype(int))
-        else:
-            counts = np.bincount(y_train.astype(int) - 1)
-        print(f"Label distribution (bincount): {counts}")

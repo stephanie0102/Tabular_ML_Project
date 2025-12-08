@@ -123,7 +123,7 @@ class LightGBMModel(BaseModel):
         reg_alpha=0.1,
         reg_lambda=0.1,
         class_weight="balanced",
-        n_jobs=-1,
+        n_jobs=1,
         random_state=42,
     ):
         if not HAS_LIGHTGBM:

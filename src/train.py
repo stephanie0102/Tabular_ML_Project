@@ -24,7 +24,7 @@ warnings.filterwarnings("ignore")
 # Add src directory to Python path
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from data_utils import get_data_loader, load_all_datasets
+from data_utils import get_data_loader
 from models_tabular import (
     get_model,
     get_default_models,
