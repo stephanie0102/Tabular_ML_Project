@@ -88,6 +88,23 @@ def train_single_dataset(
         print(f"Features:        {X_train.shape[1]}")
         print(f"Classes:         {len(np.unique(y_train))}")
 
+    # Optional downsampling for TabPFN baseline to respect 50k pretraining limit.
+    if model_type.lower() in {"baseline", "tabpfn"}:
+        max_samples = int(os.environ.get("TABPFN_SAMPLE_MAX", "50000"))
+        if X_train.shape[0] > max_samples:
+            if verbose:
+                print(
+                    f"Downsampling to {max_samples} samples for TabPFN "
+                    f"(from {X_train.shape[0]})"
+                )
+            X_train, _, y_train, _ = train_test_split(
+                X_train,
+                y_train,
+                train_size=max_samples,
+                stratify=y_train,
+                random_state=42,
+            )
+
     # Load pre-defined best parameters
     best_params = get_best_params_per_dataset()
 
