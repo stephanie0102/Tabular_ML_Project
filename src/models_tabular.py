@@ -7,13 +7,6 @@ Random Forest, LightGBM, XGBoost, Logistic Regression, MLP, etc.
 
 import os
 import warnings
-
-# Mitigate OpenMP library conflicts (libomp vs libiomp) common on macOS/conda.
-# Set before importing numpy/torch to reduce segfault risk.
-os.environ.setdefault("KMP_DUPLICATE_LIB_OK", "TRUE")
-os.environ.setdefault("OMP_NUM_THREADS", "1")
-os.environ.setdefault("MKL_NUM_THREADS", "1")
-
 import numpy as np
 import torch
 from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier
@@ -254,7 +247,7 @@ class TabPFNModel(BaseModel):
 
     def __init__(
         self,
-        device="cpu",
+        device="auto",
         n_configurations=32,
         n_estimators=None,
         model_path=None,
@@ -297,25 +290,13 @@ class TabPFNModel(BaseModel):
             # If anything fails, fall back to whatever TabPFN chooses internally.
             pass
 
-        # Allow GPU / MPS selection via env var; default stays "cpu".
+        # default "auto" lets TabPFN pick.
         env_device = os.environ.get("TABPFN_DEVICE")
         if env_device:
             device = env_device
-        # Fallback if requested GPU is not available/compiled.
-        if isinstance(device, str):
-            dev_lower = device.lower()
-            if dev_lower.startswith("cuda"):
-                if not (torch.cuda.is_available() and torch.version.cuda):
-                    warnings.warn("CUDA not available; falling back to CPU.")
-                    device = "cpu"
-            elif dev_lower == "mps":
-                if not (hasattr(torch.backends, "mps") and torch.backends.mps.is_available()):
-                    warnings.warn("MPS not available; falling back to CPU.")
-                    device = "cpu"
-
         model = TabPFNClassifier(
             device=device,
-            n_estimators=4,
+            n_estimators=ensemble_size,
             model_path=resolved_model_path,
             ignore_pretraining_limits=ignore_pretraining_limits,
         )
