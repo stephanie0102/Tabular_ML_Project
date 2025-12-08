@@ -7,6 +7,11 @@ import os
 import sys
 import argparse
 
+# Mitigate OpenMP library conflicts (libomp vs libiomp) common on macOS/conda.
+os.environ.setdefault("KMP_DUPLICATE_LIB_OK", "TRUE")
+os.environ.setdefault("OMP_NUM_THREADS", "1")
+os.environ.setdefault("MKL_NUM_THREADS", "1")
+
 # Add src directory to Python path
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "src"))
 
@@ -107,6 +112,12 @@ Examples:
         help="Model type (default: lgbm)",
     )
     parser.add_argument(
+        "--compare-with",
+        type=str,
+        choices=["rf", "lgbm", "xgb", "lr", "mlp", "ensemble", "baseline"],
+        help="Train baseline and this model side-by-side (validation accuracy only; skips prediction)",
+    )
+    parser.add_argument(
         "--no-cv",
         action="store_true",
         help="Skip cross-validation",
@@ -162,6 +173,32 @@ Examples:
     )
     save_individual = (not args.no_save) and (not args.combined_only)
     save_combined = (not args.no_combined) or args.combined_only
+
+    # Comparison mode: always train-only and print a table.
+    if args.compare_with:
+        models = ["baseline", args.compare_with]
+        comparison_results = {}
+        for m in models:
+            print(f"\n=== Training {m} ===")
+            comparison_results[m] = train_all_datasets(
+                model_type=m,
+                use_cv=not args.no_cv,
+                save_models=True,
+                verbose=verbose,
+            )
+
+        print("\nValidation Accuracy Comparison:")
+        datasets = ["covtype", "heloc", "higgs"]
+        header = "Dataset  " + "  ".join([f"{m:>12}" for m in models])
+        print(header)
+        print("-" * len(header))
+        for ds in datasets:
+            row = [f"{ds:<8}"]
+            for m in models:
+                acc = comparison_results[m][ds]["val_accuracy"]
+                row.append(f"{acc:12.4f}")
+            print("  ".join(row))
+        return
 
     if args.train_only:
         # Train only

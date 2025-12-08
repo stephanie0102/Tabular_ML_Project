@@ -5,7 +5,17 @@ Contains multiple classification models:
 Random Forest, LightGBM, XGBoost, Logistic Regression, MLP, etc.
 """
 
+import os
+import warnings
+
+# Mitigate OpenMP library conflicts (libomp vs libiomp) common on macOS/conda.
+# Set before importing numpy/torch to reduce segfault risk.
+os.environ.setdefault("KMP_DUPLICATE_LIB_OK", "TRUE")
+os.environ.setdefault("OMP_NUM_THREADS", "1")
+os.environ.setdefault("MKL_NUM_THREADS", "1")
+
 import numpy as np
+import torch
 from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier
 from sklearn.linear_model import LogisticRegression
 from sklearn.svm import SVC
@@ -242,15 +252,72 @@ class TabPFNModel(BaseModel):
     Serves as the required baseline model.
     """
 
-    def __init__(self, device="cpu", n_configurations=32):
+    def __init__(
+        self,
+        device="cpu",
+        n_configurations=32,
+        n_estimators=None,
+        model_path=None,
+        model_version=None,
+        ignore_pretraining_limits=True,
+    ):
         if not HAS_TABPFN:
             raise ImportError(
                 "TabPFN not installed. Install with: pip install tabpfn torch"
             )
 
+        # TabPFN renamed N_ensemble_configurations -> n_estimators; keep old
+        # argument for compatibility and map it to the new name.
+        env_ensembles = os.environ.get("TABPFN_N_ESTIMATORS")
+        if env_ensembles:
+            try:
+                n_estimators = int(env_ensembles)
+            except ValueError:
+                pass
+        ensemble_size = n_estimators if n_estimators is not None else n_configurations
+
+        # Respect an explicit path, otherwise let TabPFN pick based on the
+        # configured model_version (defaults to v2 to avoid gated downloads).
+        path_env = os.environ.get("TABPFN_MODEL_PATH")
+        resolved_model_path = model_path or path_env
+        if resolved_model_path and resolved_model_path.lower() in {"v2", "v2.5"}:
+            # Version strings are handled via model_version; treat as no explicit path.
+            resolved_model_path = None
+        if not resolved_model_path:
+            resolved_model_path = "auto"
+
+        # Set desired model version for this process (env or parameter wins; default v2).
+        version_choice = model_version or os.environ.get("TABPFN_MODEL_VERSION") or "v2"
+        try:
+            from tabpfn.settings import settings
+            from tabpfn.constants import ModelVersion
+
+            settings.tabpfn.model_version = ModelVersion(version_choice)
+        except Exception:
+            # If anything fails, fall back to whatever TabPFN chooses internally.
+            pass
+
+        # Allow GPU / MPS selection via env var; default stays "cpu".
+        env_device = os.environ.get("TABPFN_DEVICE")
+        if env_device:
+            device = env_device
+        # Fallback if requested GPU is not available/compiled.
+        if isinstance(device, str):
+            dev_lower = device.lower()
+            if dev_lower.startswith("cuda"):
+                if not (torch.cuda.is_available() and torch.version.cuda):
+                    warnings.warn("CUDA not available; falling back to CPU.")
+                    device = "cpu"
+            elif dev_lower == "mps":
+                if not (hasattr(torch.backends, "mps") and torch.backends.mps.is_available()):
+                    warnings.warn("MPS not available; falling back to CPU.")
+                    device = "cpu"
+
         model = TabPFNClassifier(
             device=device,
-            N_ensemble_configurations=n_configurations,
+            n_estimators=4,
+            model_path=resolved_model_path,
+            ignore_pretraining_limits=ignore_pretraining_limits,
         )
         super().__init__("TabPFN-Baseline", model)
 
