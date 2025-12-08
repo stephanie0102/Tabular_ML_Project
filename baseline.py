@@ -9,11 +9,6 @@ import os
 import sys
 import argparse
 
-# Mitigate OpenMP library conflicts (libomp vs libiomp) common on macOS/conda.
-os.environ.setdefault("KMP_DUPLICATE_LIB_OK", "TRUE")
-os.environ.setdefault("OMP_NUM_THREADS", "1")
-os.environ.setdefault("MKL_NUM_THREADS", "1")
-
 # Add src directory to Python path
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "src"))
 
