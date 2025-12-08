@@ -8,3 +8,4 @@ tqdm
 xgboost
 tabpfn
 torch
+huggingface_hub

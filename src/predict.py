@@ -236,6 +236,12 @@ def main():
         help="Model type",
     )
     parser.add_argument(
+        "--models",
+        type=str,
+        default=None,
+        help="Comma-separated list of models to predict (e.g., 'baseline,lgbm'). Overrides --model.",
+    )
+    parser.add_argument(
         "--no-save",
         action="store_true",
         help="Do not save individual submission files (combined can still be saved)",
@@ -272,26 +278,37 @@ def main():
     verbose = not args.quiet
     save_individual = (not args.no_save) and (not args.combined_only)
     save_combined = (not args.no_combined) or args.combined_only
+    model_list = (
+        [m.strip() for m in args.models.split(",")] if args.models else [args.model]
+    )
 
-    # Predict for one or all datasets
-    if args.dataset == "all":
-        predict_all_datasets(
-            model_type=args.model,
-            save_submissions=save_individual,
-            save_individual=save_individual,
-            save_combined=save_combined,
-            combined_filename=args.combined_filename,
-            submission_prefix=args.submission_prefix,
-            verbose=verbose,
-        )
-    else:
-        predict_single_dataset(
-            dataset_name=args.dataset,
-            model_type=args.model,
-            save_submission=save_individual,
-            submission_prefix=args.submission_prefix or ("baseline_" if args.model == "baseline" else ""),
-            verbose=verbose,
-        )
+    for model_name in model_list:
+        # Derive per-model prefixes/combined filenames when running multiple models.
+        prefix = args.submission_prefix
+        if prefix is None:
+            prefix = "baseline_" if model_name == "baseline" else f"{model_name}_"
+        combined_name = args.combined_filename
+        if len(model_list) > 1 and args.combined_filename == "combined_submission.csv":
+            combined_name = f"{model_name}_combined_submission.csv"
+
+        if args.dataset == "all":
+            predict_all_datasets(
+                model_type=model_name,
+                save_submissions=save_individual,
+                save_individual=save_individual,
+                save_combined=save_combined,
+                combined_filename=combined_name,
+                submission_prefix=prefix,
+                verbose=verbose,
+            )
+        else:
+            predict_single_dataset(
+                dataset_name=args.dataset,
+                model_type=model_name,
+                save_submission=save_individual,
+                submission_prefix=prefix,
+                verbose=verbose,
+            )
 
 
 if __name__ == "__main__":
