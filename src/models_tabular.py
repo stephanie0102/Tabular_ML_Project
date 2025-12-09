@@ -10,6 +10,7 @@ import numpy as np
 import torch
 from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier
 from sklearn.model_selection import cross_val_score, StratifiedKFold
+from sklearn.preprocessing import LabelEncoder
 
 # Try importing advanced models
 try:
@@ -169,6 +170,19 @@ class XGBoostModel(BaseModel):
             eval_metric="logloss",
         )
         super().__init__("XGBoost", model)
+        # for xgb
+        self._label_encoder = None
+
+    def fit(self, X, y):
+        self._label_encoder = LabelEncoder()
+        y_encoded = self._label_encoder.fit_transform(y)
+        self.model.fit(X, y_encoded)
+
+    def predict(self, X):
+        y_pred_encoded = self.model.predict(X)
+        if self._label_encoder is not None:
+            return self._label_encoder.inverse_transform(y_pred_encoded)
+        return y_pred_encoded
 
 class TabPFNModel(BaseModel):
    
