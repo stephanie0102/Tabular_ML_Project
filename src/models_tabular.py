@@ -6,16 +6,10 @@ Random Forest, LightGBM, XGBoost, Logistic Regression, MLP, etc.
 """
 
 import os
-import warnings
 import numpy as np
 import torch
 from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier
-from sklearn.linear_model import LogisticRegression
-from sklearn.svm import SVC
-from sklearn.neighbors import KNeighborsClassifier
-from sklearn.neural_network import MLPClassifier
 from sklearn.model_selection import cross_val_score, StratifiedKFold
-import warnings
 
 # Try importing advanced models
 try:
@@ -31,17 +25,10 @@ try:
 except ImportError:
     HAS_XGBOOST = False
     print("Warning: XGBoost not installed. Run: pip install xgboost")
-
-try:
-    from catboost import CatBoostClassifier
-    HAS_CATBOOST = True
-except ImportError:
-    HAS_CATBOOST = False
-
+    
 # TabPFN (pretrained HuggingFace weights for tabular data)
 try:
     from tabpfn import TabPFNClassifier
-
     HAS_TABPFN = True
 except ImportError:
     HAS_TABPFN = False
@@ -183,82 +170,21 @@ class XGBoostModel(BaseModel):
         )
         super().__init__("XGBoost", model)
 
-
-class LogisticRegressionModel(BaseModel):
-    """Logistic Regression classifier."""
-
-    def __init__(
-        self,
-        C=1.0,
-        max_iter=1000,
-        class_weight="balanced",
-        multi_class="multinomial",
-        solver="lbfgs",
-        n_jobs=-1,
-        random_state=42,
-    ):
-        model = LogisticRegression(
-            C=C,
-            max_iter=max_iter,
-            class_weight=class_weight,
-            multi_class=multi_class,
-            solver=solver,
-            n_jobs=n_jobs,
-            random_state=random_state,
-        )
-        super().__init__("LogisticRegression", model)
-
-
-class MLPModel(BaseModel):
-    """Multi-layer Perceptron classifier."""
-
-    def __init__(
-        self,
-        hidden_layer_sizes=(256, 128, 64),
-        activation="relu",
-        solver="adam",
-        alpha=0.001,
-        batch_size="auto",
-        learning_rate_init=0.001,
-        max_iter=500,
-        random_state=42,
-    ):
-        model = MLPClassifier(
-            hidden_layer_sizes=hidden_layer_sizes,
-            activation=activation,
-            solver=solver,
-            alpha=alpha,
-            batch_size=batch_size,
-            learning_rate_init=learning_rate_init,
-            max_iter=max_iter,
-            random_state=random_state,
-            early_stopping=True,
-            validation_fraction=0.1,
-        )
-        super().__init__("MLP", model)
-
-
 class TabPFNModel(BaseModel):
-    """
-    Pretrained TabPFN classifier (HuggingFace-hosted weights).
-
-    Serves as the required baseline model.
-    """
-
+   
     def __init__(
         self,
-        device="auto",
-        n_configurations=32,
-        n_estimators=None,
-        model_path=None,
-        model_version=None,
-        ignore_pretraining_limits=True,
+        device: str = "auto",
+        n_configurations: int = 32,
+        n_estimators: int | None = None,
+        model_path: str | None = None,
+        model_version: str | None = None,
+        ignore_pretraining_limits: bool = True,
     ):
         if not HAS_TABPFN:
             raise ImportError(
                 "TabPFN not installed. Install with: pip install tabpfn torch"
             )
-
         # TabPFN renamed N_ensemble_configurations -> n_estimators; keep old
         # argument for compatibility and map it to the new name.
         env_ensembles = os.environ.get("TABPFN_N_ESTIMATORS")
@@ -267,20 +193,22 @@ class TabPFNModel(BaseModel):
                 n_estimators = int(env_ensembles)
             except ValueError:
                 pass
+
         ensemble_size = n_estimators if n_estimators is not None else n_configurations
 
         # Respect an explicit path, otherwise let TabPFN pick based on the
         # configured model_version (defaults to v2 to avoid gated downloads).
         path_env = os.environ.get("TABPFN_MODEL_PATH")
         resolved_model_path = model_path or path_env
+
         if resolved_model_path and resolved_model_path.lower() in {"v2", "v2.5"}:
-            # Version strings are handled via model_version; treat as no explicit path.
             resolved_model_path = None
+
         if not resolved_model_path:
             resolved_model_path = "auto"
 
-        # Set desired model version for this process (env or parameter wins; default v2).
         version_choice = model_version or os.environ.get("TABPFN_MODEL_VERSION") or "v2"
+
         try:
             from tabpfn.settings import settings
             from tabpfn.constants import ModelVersion
@@ -300,33 +228,8 @@ class TabPFNModel(BaseModel):
             model_path=resolved_model_path,
             ignore_pretraining_limits=ignore_pretraining_limits,
         )
+
         super().__init__("TabPFN-Baseline", model)
-
-
-class GradientBoostingModel(BaseModel):
-    """Gradient Boosting classifier."""
-
-    def __init__(
-        self,
-        n_estimators=200,
-        learning_rate=0.1,
-        max_depth=5,
-        min_samples_split=2,
-        min_samples_leaf=1,
-        subsample=0.8,
-        random_state=42,
-    ):
-        model = GradientBoostingClassifier(
-            n_estimators=n_estimators,
-            learning_rate=learning_rate,
-            max_depth=max_depth,
-            min_samples_split=min_samples_split,
-            min_samples_leaf=min_samples_leaf,
-            subsample=subsample,
-            random_state=random_state,
-        )
-        super().__init__("GradientBoosting", model)
-
 
 class EnsembleModel:
     """
@@ -405,7 +308,6 @@ class EnsembleModel:
             return np.sum(probas, axis=0) / sum(self.weights)
         return None
 
-
 def get_model(model_name, **kwargs):
     """Return a model instance given a short name."""
     models = {
@@ -415,13 +317,8 @@ def get_model(model_name, **kwargs):
         "lightgbm": LightGBMModel,
         "xgb": XGBoostModel,
         "xgboost": XGBoostModel,
-        "lr": LogisticRegressionModel,
-        "logistic": LogisticRegressionModel,
-        "mlp": MLPModel,
-        "gb": GradientBoostingModel,
-        "gradient_boosting": GradientBoostingModel,
-        "baseline": TabPFNModel,
-        "tabpfn": TabPFNModel,
+        "baseline": TabPFNBaseline,
+        "tabpfn": TabPFNBaseline,
     }
 
     model_name = model_name.lower()
