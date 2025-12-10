@@ -1,7 +1,7 @@
 # Tabular ML Benchmark
 
 ## Project Overvie
-This project trains and tests tabular models on three datasets: CoverType, HELOC, and HIGGS. The default baseline uses the TabPFN model. All code is pure Python.
+This project trains and tests tabular models on three datasets: CoverType, HELOC, and HIGGS. The default baseline uses the TabPFN model. All code is Python.
 
 ## Research Question
 Can a unified machine learning pipeline achieve better performance over a pretrained baseline on heterogeneous tabular datasets with varying class imbalance?
