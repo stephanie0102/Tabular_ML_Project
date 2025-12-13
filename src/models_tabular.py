@@ -10,6 +10,9 @@ import numpy as np
 import torch
 from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier
 from sklearn.model_selection import cross_val_score, StratifiedKFold
+from sklearn.linear_model import LogisticRegression
+from sklearn.preprocessing import StandardScaler
+from sklearn.pipeline import make_pipeline
 
 # Try importing advanced models
 try:
@@ -69,6 +72,34 @@ class BaseModel:
         scores = cross_val_score(self.model, X, y, cv=skf, scoring="accuracy")
         return scores.mean(), scores.std()
 
+class LogisticRegressionModel(BaseModel):
+    """
+    Logistic Regression with automatic standardization.
+    Good as a 'simple' baseline.
+    """
+
+    def __init__(
+        self,
+        C=1.0,
+        max_iter=1000,
+        solver='lbfgs',
+        class_weight='balanced',
+        random_state=42,
+        n_jobs=-1
+    ):
+        # LR needs scaled data, so we wrap it in a pipeline
+        model = make_pipeline(
+            StandardScaler(),
+            LogisticRegression(
+                C=C,
+                max_iter=max_iter,
+                solver=solver,
+                class_weight=class_weight,
+                random_state=random_state,
+                n_jobs=n_jobs if solver != 'liblinear' else 1
+            )
+        )
+        super().__init__("LogisticRegression", model)
 
 class RandomForestModel(BaseModel):
     """Random Forest classifier."""
@@ -319,6 +350,8 @@ def get_model(model_name, **kwargs):
         "xgboost": XGBoostModel,
         "baseline": TabPFNModel,
         "tabpfn": TabPFNModel,
+        "lr": LogisticRegressionModel,
+        "logistic_regression": LogisticRegressionModel,
     }
 
     model_name = model_name.lower()
@@ -374,6 +407,7 @@ def get_best_params_per_dataset():
                 "min_samples_split": 5,
                 "min_samples_leaf": 2,
             },
+            "lr": {"C": 0.1, "max_iter": 500},
         },
         "heloc": {
             "lgbm": {
@@ -394,7 +428,9 @@ def get_best_params_per_dataset():
             "rf": {
                 "n_estimators": 300,
                 "max_depth": 15,
+                
             },
+            "lr": {"C": 0.01},
         },
         "higgs": {
             "lgbm": {
@@ -419,6 +455,7 @@ def get_best_params_per_dataset():
                 "max_depth": 20,
                 "min_samples_split": 10,
             },
+            "lr": {"C": 0.001},
         },
     }
     return params
