@@ -8,6 +8,7 @@ Random Forest, LightGBM, XGBoost, Logistic Regression, MLP, etc.
 import os
 import numpy as np
 import torch
+from typing import Optional
 from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier
 from sklearn.model_selection import cross_val_score, StratifiedKFold
 
@@ -176,9 +177,9 @@ class TabPFNModel(BaseModel):
         self,
         device: str = "auto",
         n_configurations: int = 32,
-        n_estimators: int | None = None,
-        model_path: str | None = None,
-        model_version: str | None = None,
+        n_estimators: Optional[int] = None,
+        model_path: Optional[str] = None,
+        model_version: Optional[str] = None,
         ignore_pretraining_limits: bool = True,
     ):
         if not HAS_TABPFN:
@@ -317,8 +318,8 @@ def get_model(model_name, **kwargs):
         "lightgbm": LightGBMModel,
         "xgb": XGBoostModel,
         "xgboost": XGBoostModel,
-        "baseline": TabPFNBaseline,
-        "tabpfn": TabPFNBaseline,
+        "baseline": TabPFNModel,
+        "tabpfn": TabPFNModel,
     }
 
     model_name = model_name.lower()

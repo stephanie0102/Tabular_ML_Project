@@ -14,6 +14,7 @@ import numpy as np
 import pandas as pd
 import pickle
 import json
+import time
 from datetime import datetime
 from sklearn.model_selection import train_test_split, cross_val_score, StratifiedKFold
 from sklearn.metrics import accuracy_score, classification_report, confusion_matrix
@@ -41,7 +42,9 @@ from models_tabular import (
 # Directory configuration
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 MODEL_DIR = os.path.join(BASE_DIR, "models")
+RESULTS_DIR = os.path.join(BASE_DIR, "results", "metrics")
 os.makedirs(MODEL_DIR, exist_ok=True)
+os.makedirs(RESULTS_DIR, exist_ok=True)
 
 
 def train_single_dataset(
@@ -145,19 +148,36 @@ def train_single_dataset(
     X_tr, X_val, y_tr, y_val = train_test_split(
         X_train, y_train, test_size=0.15, random_state=42, stratify=y_train
     )
+    
+    # Store validation indices for later reference
+    val_indices = np.arange(len(X_train))[len(X_tr):]
 
     # Train final model on full training data
     if verbose:
         print("\nTraining final model on full training data...")
 
+    # Measure training time
+    train_start = time.time()
     model.fit(X_train, y_train)
+    train_time = time.time() - train_start
 
     # Evaluate on validation split (for reporting only)
+    # Measure inference time
+    inference_start = time.time()
     val_pred = model.predict(X_val)
+    inference_time = time.time() - inference_start
+    
     val_accuracy = accuracy_score(y_val, val_pred)
+    
+    # Get prediction probabilities if available
+    val_proba = None
+    if hasattr(model, 'predict_proba'):
+        val_proba = model.predict_proba(X_val)
 
     if verbose:
         print(f"Validation Accuracy: {val_accuracy:.4f}")
+        print(f"Training Time: {train_time:.2f} seconds")
+        print(f"Inference Time: {inference_time:.4f} seconds")
         print("\nClassification Report:")
         print(classification_report(y_val, val_pred))
 
@@ -168,11 +188,55 @@ def train_single_dataset(
             pickle.dump(model, f)
         if verbose:
             print(f"Model saved to: {model_path}")
+        
+        # Save comprehensive metrics
+        metrics = {
+            "dataset": dataset_name,
+            "model_type": model_type,
+            "timestamp": datetime.now().isoformat(),
+            
+            # Performance metrics
+            "val_accuracy": float(val_accuracy),
+            "train_time": float(train_time),
+            "inference_time": float(inference_time),
+            "inference_samples_per_sec": len(X_val) / inference_time if inference_time > 0 else 0,
+            
+            # Cross-validation scores
+            "cv_mean": float(cv_scores.mean()) if cv_scores is not None else None,
+            "cv_std": float(cv_scores.std()) if cv_scores is not None else None,
+            "cv_scores": cv_scores.tolist() if cv_scores is not None else None,
+            
+            # Dataset info
+            "n_train_samples": len(X_train),
+            "n_val_samples": len(X_val),
+            "n_features": X_train.shape[1],
+            "n_classes": len(np.unique(y_train)),
+            
+            # Validation predictions (for error analysis)
+            "val_predictions": val_pred.tolist(),
+            "val_true_labels": y_val.tolist(),
+            "val_indices": val_indices.tolist(),
+            
+            # Hyperparameters used
+            "hyperparameters": params,
+        }
+        
+        # Add probabilities if available
+        if val_proba is not None:
+            metrics["val_probabilities"] = val_proba.tolist()
+        
+        # Save metrics to JSON
+        metrics_path = os.path.join(RESULTS_DIR, f"{dataset_name}_{model_type}_metrics.json")
+        with open(metrics_path, "w") as f:
+            json.dump(metrics, f, indent=2)
+        if verbose:
+            print(f"Metrics saved to: {metrics_path}")
 
     return {
         "model": model,
         "dataset": dataset_name,
         "val_accuracy": val_accuracy,
+        "train_time": train_time,
         "cv_scores": cv_scores.tolist() if cv_scores is not None else None,
     }
 
@@ -342,7 +406,7 @@ def main():
         "--model",
         type=str,
         default="lgbm",
-        choices=["rf", "lgbm", "xgb", "lr", "mlp", "ensemble", "baseline"],
+        choices=["rf", "lgbm", "xgb", "lr", "mlp", "ensemble", "baseline", "tabpfn"],
         help="Model type",
     )
     parser.add_argument(
