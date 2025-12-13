@@ -317,8 +317,8 @@ def get_model(model_name, **kwargs):
         "lightgbm": LightGBMModel,
         "xgb": XGBoostModel,
         "xgboost": XGBoostModel,
-        "baseline": TabPFNBaseline,
-        "tabpfn": TabPFNBaseline,
+        "baseline": TabPFNModel,
+        "tabpfn": TabPFNModel,
     }
 
     model_name = model_name.lower()
