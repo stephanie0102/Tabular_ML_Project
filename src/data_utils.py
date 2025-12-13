@@ -43,7 +43,7 @@ class CovTypeDataLoader(DataLoader):
         # Feature columns (all except Cover_Type)
         self.feature_cols = [col for col in df.columns if col != 'Cover_Type']
         X = df[self.feature_cols].values
-        y = df['Cover_Type'].values
+        y = df['Cover_Type'].values - 1
         
         return X, y, self.feature_cols
     

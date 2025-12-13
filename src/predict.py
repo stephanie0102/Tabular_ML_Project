@@ -98,7 +98,7 @@ def predict_single_dataset(
     # Post-process labels if needed (here mostly just casting to int)
     if dataset_name == "covtype":
         # CoverType: labels are 1–7
-        predictions = predictions.astype(int)
+        predictions = predictions.astype(int) + 1
     elif dataset_name == "heloc":
         # HELOC: 0=Bad, 1=Good (we keep numeric as in sample submission)
         predictions = predictions.astype(int)
