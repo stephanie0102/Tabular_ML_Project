@@ -18,6 +18,7 @@ from datetime import datetime
 from sklearn.model_selection import train_test_split, cross_val_score, StratifiedKFold
 from sklearn.metrics import accuracy_score, classification_report, confusion_matrix
 import warnings
+import json
 
 warnings.filterwarnings("ignore")
 
@@ -152,10 +153,32 @@ def train_single_dataset(
 
     model.fit(X_train, y_train)
 
-    # Evaluate on validation split (for reporting only)
+    # Evaluate on validation split
     val_pred = model.predict(X_val)
     val_accuracy = accuracy_score(y_val, val_pred)
+    
+    val_pred_proba = model.predict_proba(X_val)  # predict probabilities
+    
+    wrong_indices = np.where(y_val != val_pred)[0] # get indices of wrong predictions
+    
+    # save error analysis data
+    error_analysis_data = []
+    for idx in wrong_indices:
+        sample_data = {
+            'sample_index': idx,
+            'features': X_val[idx].tolist(),  
+            'true_label': y_val[idx],  # true label
+            'predicted_label': val_pred[idx],  # predicted label
+            'prediction_probabilities': val_pred_proba[idx],  # prediction probabilities for all classes
+            'confidence': np.max(val_pred_proba[idx]),  # highest prediction probability as confidence
+        }
+        error_analysis_data.append(sample_data)
 
+    # Save as JSON for easier analysis
+    
+    error_analysis_path = os.path.join(MODEL_DIR, f"{dataset_name}_{model_type}_error_analysis.json")
+    with open(error_analysis_path, 'w') as f:
+        json.dump(error_analysis_data, f, indent=2, default=str)    
     if verbose:
         print(f"Validation Accuracy: {val_accuracy:.4f}")
         print("\nClassification Report:")
