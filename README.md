@@ -4,7 +4,7 @@
 This project trains and tests tabular models on three datasets: CoverType, HELOC, and HIGGS. The default baseline uses the TabPFN model. All code is Python.
 
 ## Research Question
-Can lightweight tree-based models (LightGBM/XGBoost) outperform a pretrained transformer-based baseline (TabPFN 2.5) across three heterogeneous tabular datasets, despite their differences in scale, feature types, and class imbalance?
+Can lightweight tree-based models achieve competitive performance relative to a pretrained tabular transformer (TabPFN 2.5) while offering substantially lower computational cost across heterogeneous tabular datasets?
 
 ## Setup
 - Python
