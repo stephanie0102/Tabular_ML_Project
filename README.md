@@ -34,7 +34,5 @@ Can lightweight tree-based models achieve competitive performance relative to a 
 - Turn off cross-validation: add `--no-cv`.
 - Error Analysis: `python error_analysis.py`. Analyze validation errors and model confidence patterns.
 - ps: Due to local configuration restrictions, the test results were conducted using the Colab platform.
-- Baseline - https://colab.research.google.com/drive/1x7jjKtb7S4mAk8N0thL1Etw0rL__yHnT?usp=sharing
-- lgbm/xgb - https://colab.research.google.com/drive/1AGG6tWfcGsGHF4HbEJZAS6Vfq5HqBwfT#scrollTo=p-_5euLK6ERO
 
 
