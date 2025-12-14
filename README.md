@@ -1,40 +1,30 @@
-# Tabular ML Benchmark
+# Tabular ML Benchmark (Unified Model)
 
-## Project Overview
-This project trains and tests tabular models on three datasets: CoverType, HELOC, and HIGGS. The default baseline uses the TabPFN model. All code is Python.
-
-## Research Question
-Can lightweight tree-based models achieve competitive performance relative to a pretrained tabular transformer (TabPFN 2.5) while offering substantially lower computational cost across heterogeneous tabular datasets?
+## Overview
+Single, unified model trained across three tabular datasets: CoverType, HELOC, and HIGGS. All training/inference uses the unified feature space (adds `dataset_id`) and one set of hyperparameters per model type.
 
 ## Setup
-- Python
-- Install packages: `pip install -r requirements.txt`.
-- Data CSV files are already in `data/raw/`.
+- Python 3. Install deps: `pip install -r requirements.txt`
+- Data CSVs are under `data/raw/`
 
-## key files
-- `run.py`: main entry for training and prediction.
-- `baseline.py`: runn for the TabPFN baseline.
-- `src/train.py`: training helpers.
-- `src/predict.py`: prediction and submission helpers.
-- `src/models_tabular.py`: model definitions.
-- `src/data_utils.py`: data loading for the three datasets.
- 
+## Key Files
+- `src/train.py` — unified training
+- `src/predict.py` — unified prediction + combined submission
+- `src/models_tabular.py` — model definitions (RF, LGBM, XGB, etc.)
+- `src/data_utils.py` — data loaders + unified feature/label mapping
+
 ## Outputs
-- Trained models are saved in `models/` as `dataset_model.pkl`.
-- `models/{dataset}_{model}_error_analysis.json` contains misclassified validation samples
-- Submission CSVs go to `submissions/`.  
-- Per-dataset files look like `baseline_covtype_test_submission.csv`.  
-- Combined file is `combined_submission.csv`.
+- Models: `models/unified_<model>_model.txt` (LGBM) or `.pkl` (others)
+- Metadata: `models/unified_<model>_metadata.json`
+- Error analysis: `models/unified_<model>_error_analysis.json`
+- Submissions: `submissions/<model>_<dataset>_test_submission.csv` and combined file
 
-## How to run
-- Full pipeline with chosen model (`rf`, `lgbm`, `xgb`, `lr`, `mlp`, `ensemble`, `baseline`):  
-  `python run.py --model lgbm`
-- Train only: `python run.py --model lgbm --train-only`.
-- Predict only: `python run.py --model lgbm --predict-only`.
-- Turn off cross-validation: add `--no-cv`.
-- Error Analysis: `python error_analysis.py`. Analyze validation errors and model confidence patterns.
-- ps: Due to local configuration restrictions, the test results were conducted using the Colab platform.
-- Baseline - https://colab.research.google.com/drive/1x7jjKtb7S4mAk8N0thL1Etw0rL__yHnT?usp=sharing
-- lgbm/xgb - https://colab.research.google.com/drive/1AGG6tWfcGsGHF4HbEJZAS6Vfq5HqBwfT#scrollTo=p-_5euLK6ERO
+## How to Run (unified only)
+- Train (with CV): `python src/train.py --dataset unified --model lgbm`
+- Train (no CV): `python src/train.py --dataset unified --model lgbm --no-cv`
+- Predict: `python src/predict.py --dataset unified --model lgbm`
+  - Replace `lgbm` with `rf`/`xgb` if desired
 
-
+## Notes
+- LightGBM is saved as a text booster to avoid pickle issues.
+- Hyperparameter search and per-dataset training are removed to comply with the unified-model requirement.
