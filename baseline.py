@@ -12,8 +12,8 @@ import argparse
 # Add src directory to Python path
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "src"))
 
-from train import train_all_datasets
-from predict import predict_all_datasets
+from train import train_unified_model
+from predict import predict_unified_model
 
 
 def main():
@@ -77,20 +77,19 @@ def main():
 
     # Train only
     if args.train_only:
-        train_all_datasets(
+        train_unified_model(
             model_type="tabpfn",
             use_cv=not args.no_cv,
-            save_models=True,
+            save_model=True,
             verbose=verbose,
         )
         return
 
     # Predict only
     if args.predict_only:
-        predict_all_datasets(
+        predict_unified_model(
             model_type="tabpfn",
             save_submissions=save_individual,
-            save_individual=save_individual,
             save_combined=save_combined,
             combined_filename=args.combined_filename,
             submission_prefix=submission_prefix,
@@ -99,16 +98,15 @@ def main():
         return
 
     # Full pipeline
-    train_all_datasets(
+    train_unified_model(
         model_type="tabpfn",
         use_cv=not args.no_cv,
-        save_models=True,
+        save_model=True,
         verbose=verbose,
     )
-    predict_all_datasets(
+    predict_unified_model(
         model_type="tabpfn",
         save_submissions=save_individual,
-        save_individual=save_individual,
         save_combined=save_combined,
         combined_filename=args.combined_filename,
         submission_prefix=submission_prefix,
