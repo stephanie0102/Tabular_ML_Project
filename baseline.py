@@ -32,15 +32,6 @@ def train_tabpfn_dataset(dataset_name: str, use_cv: bool = True, verbose: bool =
     loader = get_data_loader(dataset_name)
     X, y, _ = loader.load_train_data()
 
-    # Downsample to respect TabPFN pretraining limit
-    max_samples = int(os.environ.get("TABPFN_SAMPLE_MAX", "50000"))
-    if X.shape[0] > max_samples:
-        if verbose:
-            print(f"{dataset_name}: downsampling to {max_samples} (from {X.shape[0]})")
-        X, _, y, _ = train_test_split(
-            X, y, train_size=max_samples, stratify=y, random_state=42
-        )
-
     model = TabPFNModel()
 
     cv_scores = None
