@@ -131,6 +131,16 @@ def train_unified_model(
     val_pred_proba = model.predict_proba(X_val)
     wrong_indices = np.where(y_val != val_pred)[0]
 
+    # Per-dataset accuracies on validation split
+    dataset_ids_val = X_val[:, -1].astype(int)
+    per_dataset_acc = {}
+    for name, did in DATASET_ID_MAP.items():
+        mask = dataset_ids_val == did
+        if mask.any():
+            per_dataset_acc[name] = accuracy_score(y_val[mask], val_pred[mask])
+        else:
+            per_dataset_acc[name] = None
+
     error_analysis_data = []
     for idx in wrong_indices:
         sample_entry = {
@@ -153,6 +163,12 @@ def train_unified_model(
         print(f"Validation Accuracy (unified hold-out): {val_accuracy:.4f}")
         print("\nClassification Report:")
         print(classification_report(y_val, val_pred))
+        print("Per-dataset validation accuracy:")
+        for name, acc in per_dataset_acc.items():
+            if acc is None:
+                print(f"  {name.upper()}: n/a")
+            else:
+                print(f"  {name.upper()}: {acc:.4f}")
 
     # Optionally retrain on full data before saving for inference.
     if save_model:
@@ -190,6 +206,7 @@ def train_unified_model(
         "dataset": "unified",
         "val_accuracy": val_accuracy,
         "cv_scores": cv_scores.tolist() if cv_scores is not None else None,
+        "per_dataset_accuracy": per_dataset_acc,
     }
 
 
