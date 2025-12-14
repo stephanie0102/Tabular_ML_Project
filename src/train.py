@@ -58,29 +58,19 @@ def train_unified_model(
         print("Training unified model across COVTYPE + HELOC + HIGGS")
         print(f"Model: {model_type}")
 
+    # TabPFN cannot handle 11 unified classes; force per-dataset baseline instead.
+    if model_type.lower() in {"baseline", "tabpfn"}:
+        raise ValueError(
+            "TabPFN only supports up to 10 classes; unified dataset has 11. "
+            "Use baseline.py to train per-dataset TabPFN models instead."
+        )
+
     X_train, y_train, union_features = load_unified_train_data()
 
     if verbose:
         print(f"Unified training samples: {X_train.shape[0]}")
         print(f"Unified features:        {X_train.shape[1]} (includes dataset_id)")
         print(f"Unified classes:         {len(np.unique(y_train))}")
-
-    # Optional downsampling for TabPFN baseline to respect pretraining limits.
-    if model_type.lower() in {"baseline", "tabpfn"}:
-        max_samples = int(os.environ.get("TABPFN_SAMPLE_MAX", "50000"))
-        if X_train.shape[0] > max_samples:
-            if verbose:
-                print(
-                    f"Downsampling to {max_samples} samples for TabPFN "
-                    f"(from {X_train.shape[0]})"
-                )
-            X_train, _, y_train, _ = train_test_split(
-                X_train,
-                y_train,
-                train_size=max_samples,
-                stratify=y_train,
-                random_state=42,
-            )
 
     # Build model (single set of hyperparameters for all datasets).
     n_classes = int(len(np.unique(y_train)))
