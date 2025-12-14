@@ -267,7 +267,7 @@ def get_data_loader(dataset_name):
     return loaders[dataset_name]()
 
 
-# ---------------- Unified (single model) helpers ---------------- #
+# Unified (single model) helpers#
 
 def _align_to_union_features(
     X: np.ndarray,

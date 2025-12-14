@@ -361,7 +361,6 @@ def get_model(model_name, **kwargs):
         "tabpfn": TabPFNModel,
         "baseline": TabPFNModel,
         "tabpfn": TabPFNModel,
-        "lr": LogisticRegressionModel,
         "logistic_regression": LogisticRegressionModel,
     }
 
