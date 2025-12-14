@@ -21,6 +21,9 @@ from data_utils import get_data_loader
 from models_tabular import TabPFNModel, HAS_TABPFN
 from predict import combine_submissions
 
+# Default to TabPFN v2.5 unless user overrides.
+os.environ.setdefault("TABPFN_MODEL_VERSION", "v2.5")
+
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 MODEL_DIR = os.path.join(BASE_DIR, "models")
 SUBMISSION_DIR = os.path.join(BASE_DIR, "submissions")

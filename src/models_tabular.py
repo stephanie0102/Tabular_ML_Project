@@ -247,7 +247,7 @@ class TabPFNModel(BaseModel):
         if not resolved_model_path:
             resolved_model_path = "auto"
 
-        version_choice = model_version or os.environ.get("TABPFN_MODEL_VERSION") or "v2"
+        version_choice = model_version or os.environ.get("TABPFN_MODEL_VERSION") or "v2.5"
 
         try:
             from tabpfn.settings import settings
