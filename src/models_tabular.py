@@ -180,10 +180,15 @@ class XGBoostModel(BaseModel):
         reg_alpha=0.1,
         reg_lambda=0.1,
         n_jobs=-1,
+        tree_method="hist",
+        objective=None,
+        num_class=None,
         random_state=42,
     ):
         if not HAS_XGBOOST:
             raise ImportError("XGBoost not installed!")
+
+        eval_metric = "mlogloss" if (objective and objective.startswith("multi")) else "logloss"
 
         model = xgb.XGBClassifier(
             n_estimators=n_estimators,
@@ -198,7 +203,10 @@ class XGBoostModel(BaseModel):
             random_state=random_state,
             verbosity=0,
             use_label_encoder=False,
-            eval_metric="logloss",
+            eval_metric=eval_metric,
+            tree_method=tree_method,
+            objective=objective,
+            num_class=num_class,
         )
         super().__init__("XGBoost", model)
 

@@ -6,9 +6,30 @@ for the three datasets: CoverType, HELOC, and HIGGS.
 import pandas as pd
 import numpy as np
 import os
+from typing import Dict, List, Tuple
 
 # Data path configuration
 DATA_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data', 'raw')
+# Consistent dataset identifiers (used as an extra feature in the unified model).
+DATASET_ID_MAP = {
+    'covtype': 0,
+    'heloc': 1,
+    'higgs': 2,
+}
+
+# Label offsets to put all tasks into a single unified label space.
+LABEL_OFFSET_MAP = {
+    'covtype': 0,   # 7 classes -> 0..6
+    'heloc': 7,     # 2 classes -> 7..8
+    'higgs': 9,     # 2 classes -> 9..10
+}
+
+# Number of classes per dataset (used when mapping predictions back).
+DATASET_CLASS_COUNTS = {
+    'covtype': 7,
+    'heloc': 2,
+    'higgs': 2,
+}
 
 
 class DataLoader:
@@ -245,3 +266,121 @@ def get_data_loader(dataset_name):
         raise ValueError(f"Unknown dataset: {dataset_name}. Choose from {list(loaders.keys())}")
     return loaders[dataset_name]()
 
+
+# ---------------- Unified (single model) helpers ---------------- #
+
+def _align_to_union_features(
+    X: np.ndarray,
+    feature_cols: List[str],
+    union_features: List[str],
+) -> np.ndarray:
+    """
+    Align a dataset to the union feature space by adding missing columns (filled with 0)
+    and ordering columns consistently.
+    """
+    df = pd.DataFrame(X, columns=feature_cols)
+    missing_cols = [c for c in union_features if c not in df.columns]
+    for col in missing_cols:
+        df[col] = 0
+    # Reorder to the union feature order
+    df = df[union_features]
+    return df.values
+
+
+def load_unified_train_data():
+    """
+    Load and merge all training splits into a single feature/label space.
+
+    Returns
+    -------
+    X_all : np.ndarray
+        Features concatenated across datasets, aligned to the union of columns,
+        with an extra 'dataset_id' feature appended as the last column.
+    y_all : np.ndarray
+        Labels mapped into a single unified label space using LABEL_OFFSET_MAP.
+    union_features_with_id : List[str]
+        Ordered list of feature names used for training, including 'dataset_id' as the last entry.
+    """
+    train_parts: Dict[str, Dict] = {}
+    union_features = set()
+
+    # 1) Load each dataset and collect the union of feature names.
+    for name in DATASET_ID_MAP.keys():
+        loader = get_data_loader(name)
+        X, y, feature_cols = loader.load_train_data()
+        train_parts[name] = {
+            "X": X,
+            "y": y,
+            "feature_cols": feature_cols,
+        }
+        union_features.update(feature_cols)
+
+    union_features = sorted(list(union_features))
+
+    # 2) Align, append dataset_id, and map labels into a unified space.
+    X_all = []
+    y_all = []
+    for name, part in train_parts.items():
+        X_aligned = _align_to_union_features(part["X"], part["feature_cols"], union_features)
+        dataset_id = np.full((X_aligned.shape[0], 1), DATASET_ID_MAP[name])
+        X_all.append(np.hstack([X_aligned, dataset_id]))
+        y_all.append(part["y"] + LABEL_OFFSET_MAP[name])
+
+    X_all = np.vstack(X_all)
+    y_all = np.concatenate(y_all)
+    union_features_with_id = union_features + ["dataset_id"]
+
+    return X_all, y_all, union_features_with_id
+
+
+def load_unified_test_data(union_features: List[str]):
+    """
+    Load and align all test splits to the unified feature space (plus dataset_id).
+
+    Returns
+    -------
+    test_parts : Dict[str, Dict]
+        Mapping dataset name -> {
+            "X": np.ndarray aligned to union_features + dataset_id,
+            "ids": np.ndarray of row IDs for submission,
+        }
+    """
+    test_parts: Dict[str, Dict] = {}
+    base_features = [f for f in union_features if f != "dataset_id"]
+
+    for name in DATASET_ID_MAP.keys():
+        loader = get_data_loader(name)
+        # Load train first to ensure feature ordering, then test
+        _, _, train_feature_cols = loader.load_train_data()
+        X_test, _ = loader.load_test_data()
+        X_aligned = _align_to_union_features(X_test, train_feature_cols, base_features)
+        dataset_id = np.full((X_aligned.shape[0], 1), DATASET_ID_MAP[name])
+        X_full = np.hstack([X_aligned, dataset_id])
+
+        ids = np.arange(loader.id_start, loader.id_start + X_full.shape[0])
+        test_parts[name] = {"X": X_full, "ids": ids}
+
+    return test_parts
+
+
+def map_global_to_dataset_labels(
+    dataset_name: str,
+    global_preds: np.ndarray,
+) -> np.ndarray:
+    """
+    Map predictions from the unified label space back to per-dataset labels.
+
+    If a prediction falls outside the expected range for the dataset, it is
+    clamped to the first class of that dataset.
+    """
+    offset = LABEL_OFFSET_MAP[dataset_name]
+    num_classes = DATASET_CLASS_COUNTS[dataset_name]
+    low, high = offset, offset + num_classes - 1
+
+    mapped = []
+    for p in global_preds:
+        if p < low or p > high:
+            mapped.append(0)
+        else:
+            mapped.append(p - offset)
+    return np.array(mapped, dtype=int)
